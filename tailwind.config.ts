@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Nunito', 'system-ui', 'sans-serif'],
+        display: ['Quicksand', 'Nunito', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -22,6 +26,27 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          soft: "hsl(var(--primary-soft))",
+        },
+        peach: {
+          DEFAULT: "hsl(var(--peach))",
+          foreground: "hsl(var(--peach-foreground))",
+          soft: "hsl(var(--peach-soft))",
+        },
+        mint: {
+          DEFAULT: "hsl(var(--mint))",
+          foreground: "hsl(var(--mint-foreground))",
+          soft: "hsl(var(--mint-soft))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+          soft: "hsl(var(--warning-soft))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          foreground: "hsl(var(--danger-foreground))",
+          soft: "hsl(var(--danger-soft))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -60,8 +85,10 @@ export default {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 8px)",
+        '2xl': '1.25rem',
+        '3xl': '1.75rem',
       },
       keyframes: {
         "accordion-down": {

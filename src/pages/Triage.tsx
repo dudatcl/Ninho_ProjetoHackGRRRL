@@ -28,6 +28,31 @@ export default function Triage() {
 
   const [nodeId, setNodeId] = useState<string | null>(flow?.start ?? null);
   const [result, setResult] = useState<TriageColor | null>(profileBranch ?? null);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  // Auto-leitura: lê o título ao abrir a triagem
+  useEffect(() => {
+    if (flow && !profileBranch) {
+      speak(flow.title);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow?.slug]);
+
+  // Auto-leitura: lê a pergunta sempre que o nó muda
+  useEffect(() => {
+    if (!result && nodeId && flow?.nodes[nodeId]) {
+      const n = flow.nodes[nodeId];
+      // pequeno delay para não cortar a fala anterior
+      const t = setTimeout(() => speak(n.speak || n.question), 350);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeId, result]);
+
+  // Reset seleção ao trocar de nó
+  useEffect(() => {
+    setSelectedOption(null);
+  }, [nodeId]);
 
   useEffect(() => {
     if (profileBranch) {

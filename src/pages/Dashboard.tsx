@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
-import { AlertTriangle, Sparkles, BookOpen, ChevronRight, FastForward, RotateCcw, History } from 'lucide-react';
+import { AlertTriangle, Sparkles, BookOpen, ChevronRight, FastForward, RotateCcw, History, Heart, Droplet, Brain, Baby, Thermometer, CloudRain } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Speakable } from '@/components/Speakable';
 import { SpeakerToggle } from '@/components/SpeakerToggle';
@@ -9,17 +10,17 @@ import { MedicalFooter } from '@/components/MedicalFooter';
 import { SYMPTOMS, TONE_CLASS } from '@/lib/symptoms';
 import { useApp } from '@/state/AppState';
 import { useSpeech } from '@/hooks/useSpeech';
-import { storage, todayKey } from '@/lib/storage';
+import { todayKey } from '@/lib/storage';
+import type { Stage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-// Mensagens contextuais por trimestre/semana
-function smartTip(week: number) {
+// Mensagens contextuais para grávidas (por trimestre)
+function smartTipPregnant(week: number) {
   if (week <= 12) {
     return {
       title: 'Dicas para enjoos',
       text: 'Coma pouco e devagar. Beba água com limão.',
       tone: 'mint' as const,
-      cta: 'Ver dicas',
       to: '/triagem/dicas-enjoo',
       Icon: Sparkles,
       pulse: false,
@@ -30,7 +31,6 @@ function smartTip(week: number) {
       title: 'Movimentos do bebê',
       text: 'Sinta o bebê. Marque quando ele mexer.',
       tone: 'primary' as const,
-      cta: 'Registrar movimento',
       to: '/diario',
       Icon: BookOpen,
       pulse: false,
@@ -40,45 +40,118 @@ function smartTip(week: number) {
     title: 'Sinais de alerta para o parto',
     text: 'Bolsa, contrações, sangramento. Saiba o que fazer.',
     tone: 'peach' as const,
-    cta: 'Sinais de parto',
     to: '/triagem/parto',
     Icon: AlertTriangle,
     pulse: true,
   };
 }
 
+// Mensagens contextuais pós-parto (por dias)
+function smartTipPostpartum(days: number) {
+  if (days <= 14) {
+    return {
+      title: 'Sangramento e descanso',
+      text: 'É normal sangrar até 6 semanas. Repouse muito.',
+      tone: 'peach' as const,
+      to: '/triagem/sangramento-pos',
+      Icon: Heart,
+      pulse: true,
+    };
+  }
+  if (days <= 60) {
+    return {
+      title: 'Como você está se sentindo?',
+      text: 'Tristeza não é fraqueza. Tem ajuda.',
+      tone: 'primary' as const,
+      to: '/triagem/tristeza-pos',
+      Icon: CloudRain,
+      pulse: false,
+    };
+  }
+  return {
+    title: 'Cuidando de você',
+    text: 'Marque a consulta de pós-parto.',
+    tone: 'mint' as const,
+    to: '/timeline',
+    Icon: Sparkles,
+    pulse: false,
+  };
+}
+
+interface TriageTile {
+  to: string;
+  label: string;
+  Icon: LucideIcon;
+  tone: 'danger' | 'peach' | 'primary' | 'warning' | 'mint';
+}
+
+const TRIAGE_BY_STAGE: Record<Stage, TriageTile[]> = {
+  pregnant: [
+    { to: '/triagem/sangramento', label: 'Sangramento',     Icon: Droplet,        tone: 'danger' },
+    { to: '/triagem/dor-cabeca',  label: 'Dor de cabeça',   Icon: Brain,          tone: 'warning' },
+    { to: '/triagem/bebe',        label: 'Bebê não mexe',   Icon: Baby,           tone: 'primary' },
+    { to: '/triagem/bolsa',       label: 'Bolsa rompeu',    Icon: CloudRain,      tone: 'peach' },
+  ],
+  postpartum: [
+    { to: '/triagem/febre',            label: 'Febre',                Icon: Thermometer, tone: 'danger' },
+    { to: '/triagem/sangramento-pos',  label: 'Sangra muito',         Icon: Droplet,     tone: 'danger' },
+    { to: '/triagem/tristeza-pos',     label: 'Tristeza profunda',    Icon: CloudRain,   tone: 'primary' },
+    { to: '/triagem/dor-cabeca',       label: 'Dor de cabeça',        Icon: Brain,       tone: 'warning' },
+  ],
+};
+
+const TILE_TONE: Record<TriageTile['tone'], string> = {
+  danger:  'bg-danger-soft text-danger',
+  peach:   'bg-peach-soft text-peach-foreground',
+  primary: 'bg-primary-soft text-primary',
+  warning: 'bg-warning-soft text-warning-foreground',
+  mint:    'bg-mint-soft text-mint-foreground',
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { profile, currentWeek, daysToBirth, diary, toggleSymptomToday, advanceWeeks, consecutiveDaysWith, resetAll } = useApp();
   const { speak } = useSpeech();
 
-  const tip = useMemo(() => smartTip(currentWeek), [currentWeek]);
+  if (!profile) return null;
+  const isPostpartum = profile.stage === 'postpartum';
+
+  const totalPostpartumDays = isPostpartum
+    ? profile.postpartumDays + profile.demoOffsetWeeks * 7
+    : 0;
+
+  const tip = useMemo(
+    () => (isPostpartum ? smartTipPostpartum(totalPostpartumDays) : smartTipPregnant(currentWeek)),
+    [isPostpartum, totalPostpartumDays, currentWeek],
+  );
+
+  const triageTiles = TRIAGE_BY_STAGE[profile.stage];
+
   const todayEntry = diary.find((e) => e.date === todayKey());
   const painStreak = consecutiveDaysWith('dor');
   const headacheStreak = consecutiveDaysWith('dor_cabeca');
-
-  if (!profile) return null;
 
   return (
     <div className="min-h-screen px-5 py-6">
       <header className="mx-auto flex max-w-md items-center justify-between">
         <div>
           <Speakable as="h1" text="Olá. Bem-vinda de volta." className="font-display text-2xl font-extrabold text-primary">
-            Olá, mamãe 💜
+            Olá, {isPostpartum ? 'mamãe 💖' : 'mamãe 💜'}
           </Speakable>
           <p className="text-sm text-muted-foreground">
-            {profile.age} anos · {profile.hasOtherChildren ? 'Já é mãe' : 'Primeira gestação'}
+            {profile.age} anos · {isPostpartum ? 'Pós-parto' : 'Gravidez'} ·{' '}
+            {profile.hasOtherChildren ? 'Já é mãe' : 'Primeira vez'}
           </p>
         </div>
         <SpeakerToggle />
       </header>
 
-      {/* Alerta amarelo: 3 dias seguidos com mesmo sintoma */}
+      {/* Alerta amarelo: 3 dias seguidos */}
       {(painStreak >= 3 || headacheStreak >= 3) && (
         <button
           onClick={() => {
             speak('Você marcou esse sintoma 3 dias seguidos. Toque para triagem.');
-            navigate(headacheStreak >= 3 ? '/triagem/dor-cabeca' : '/triagem/sangramento');
+            navigate(headacheStreak >= 3 ? '/triagem/dor-cabeca' : (isPostpartum ? '/triagem/sangramento-pos' : '/triagem/sangramento'));
           }}
           className="mx-auto mt-5 flex w-full max-w-md items-center gap-3 rounded-2xl bg-warning-soft p-4 text-left shadow-soft-sm"
         >
@@ -95,20 +168,61 @@ export default function Dashboard() {
         </button>
       )}
 
-      {/* Anel de progresso */}
+      {/* Anel / Cabeçalho contextual */}
       <section className="mx-auto mt-6 flex max-w-md flex-col items-center soft-card p-6">
-        <PregnancyRing week={currentWeek} daysToBirth={daysToBirth} />
-        <Speakable
-          as="p"
-          text={`Você está na semana ${currentWeek}. Faltam ${daysToBirth} dias.`}
-          className="mt-3 text-sm text-muted-foreground"
-        >
-          Toque para ouvir
+        {isPostpartum ? (
+          <PostpartumHeader days={totalPostpartumDays} />
+        ) : (
+          <>
+            <PregnancyRing week={currentWeek} daysToBirth={daysToBirth} />
+            <Speakable
+              as="p"
+              text={`Você está na semana ${currentWeek}. Faltam ${daysToBirth} dias.`}
+              className="mt-3 text-sm text-muted-foreground"
+            >
+              Toque para ouvir
+            </Speakable>
+          </>
+        )}
+      </section>
+
+      {/* TRIAGENS RÁPIDAS — destaque máximo */}
+      <section className="mx-auto mt-6 max-w-md">
+        <Speakable as="h2" text="Triagens rápidas. Toque se sentir algo." className="px-1 font-display text-lg font-bold">
+          Triagens rápidas
         </Speakable>
+        <p className="px-1 text-xs text-muted-foreground">Toque no que está sentindo agora</p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {triageTiles.map((t) => (
+            <button
+              key={t.to}
+              onClick={() => { speak(t.label); navigate(t.to); }}
+              className={cn(
+                'group flex aspect-square flex-col items-start justify-between rounded-3xl p-5 text-left shadow-soft transition-soft hover:scale-[1.03] active:scale-95',
+                TILE_TONE[t.tone],
+              )}
+            >
+              <div className={cn(
+                'rounded-2xl p-2.5',
+                t.tone === 'danger' && 'bg-danger/15',
+                t.tone === 'peach' && 'bg-white/50',
+                t.tone === 'primary' && 'bg-white/60',
+                t.tone === 'warning' && 'bg-white/50',
+                t.tone === 'mint' && 'bg-white/50',
+              )}>
+                <t.Icon size={32} strokeWidth={2.2} />
+              </div>
+              <div>
+                <p className="font-display text-lg font-extrabold leading-tight">{t.label}</p>
+                <ChevronRight className="mt-1 opacity-70" size={18} />
+              </div>
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* Card inteligente temporal */}
-      <section className="mx-auto mt-5 max-w-md">
+      <section className="mx-auto mt-6 max-w-md">
         <button
           onClick={() => { speak(tip.title); navigate(tip.to); }}
           className={cn(
@@ -131,7 +245,7 @@ export default function Dashboard() {
         </button>
       </section>
 
-      {/* Diário de Sensações - carrossel */}
+      {/* Diário de Sensações */}
       <section className="mx-auto mt-6 max-w-md">
         <div className="flex items-end justify-between px-1">
           <Speakable as="h2" text="Como você se sente hoje?" className="font-display text-lg font-bold">
@@ -166,35 +280,6 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Triagens rápidas */}
-      <section className="mx-auto mt-6 max-w-md">
-        <Speakable as="h2" text="Triagens rápidas. Toque se sentir algo." className="font-display text-lg font-bold">
-          Triagens rápidas
-        </Speakable>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          {[
-            { to: '/triagem/sangramento', label: 'Sangramento', tone: 'danger' },
-            { to: '/triagem/bolsa', label: 'Bolsa rompeu', tone: 'peach' },
-            { to: '/triagem/bebe', label: 'Bebê não mexe', tone: 'primary' },
-            { to: '/triagem/dor-cabeca', label: 'Dor de cabeça', tone: 'warning' },
-          ].map((t) => (
-            <button
-              key={t.to}
-              onClick={() => { speak(t.label); navigate(t.to); }}
-              className={cn(
-                'rounded-2xl p-4 text-left font-display text-base font-bold shadow-soft-sm transition-soft hover:scale-[1.02]',
-                t.tone === 'danger' && 'bg-danger-soft text-danger',
-                t.tone === 'peach' && 'bg-peach-soft text-peach-foreground',
-                t.tone === 'primary' && 'bg-primary-soft text-primary',
-                t.tone === 'warning' && 'bg-warning-soft text-warning-foreground',
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
       {/* Modo Demo */}
       <section className="mx-auto mt-6 max-w-md soft-card-sm p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Modo demo</p>
@@ -222,6 +307,36 @@ export default function Dashboard() {
       </section>
 
       <MedicalFooter />
+    </div>
+  );
+}
+
+function PostpartumHeader({ days }: { days: number }) {
+  const weeks = Math.floor(days / 7);
+  const phase =
+    days <= 14 ? 'Resguardo'
+    : days <= 45 ? 'Quarentena'
+    : days <= 180 ? 'Puerpério tardio'
+    : 'Pós-parto longo';
+
+  return (
+    <div className="flex w-full flex-col items-center text-center">
+      <div className="rounded-full bg-gradient-peach-cta p-6 shadow-peach-glow">
+        <Heart size={64} className="text-peach-foreground" />
+      </div>
+      <Speakable
+        as="div"
+        text={`Você está há ${days} dias do parto. Fase: ${phase}.`}
+        className="mt-4"
+      >
+        <p className="font-display text-5xl font-extrabold text-peach-foreground">{days}</p>
+        <p className="text-sm uppercase tracking-widest text-muted-foreground">
+          {days === 1 ? 'dia' : 'dias'} do parto
+        </p>
+        <p className="mt-2 text-xs font-bold text-primary">
+          {weeks} {weeks === 1 ? 'semana' : 'semanas'} · {phase}
+        </p>
+      </Speakable>
     </div>
   );
 }

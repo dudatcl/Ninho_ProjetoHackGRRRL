@@ -28,6 +28,31 @@ export default function Triage() {
 
   const [nodeId, setNodeId] = useState<string | null>(flow?.start ?? null);
   const [result, setResult] = useState<TriageColor | null>(profileBranch ?? null);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  // Auto-leitura: lê o título ao abrir a triagem
+  useEffect(() => {
+    if (flow && !profileBranch) {
+      speak(flow.title);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow?.slug]);
+
+  // Auto-leitura: lê a pergunta sempre que o nó muda
+  useEffect(() => {
+    if (!result && nodeId && flow?.nodes[nodeId]) {
+      const n = flow.nodes[nodeId];
+      // pequeno delay para não cortar a fala anterior
+      const t = setTimeout(() => speak(n.speak || n.question), 350);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeId, result]);
+
+  // Reset seleção ao trocar de nó
+  useEffect(() => {
+    setSelectedOption(null);
+  }, [nodeId]);
 
   useEffect(() => {
     if (profileBranch) {
@@ -74,20 +99,42 @@ export default function Triage() {
               {node.question}
             </Speakable>
             <div className="mt-5 space-y-3">
-              {node.options.map((opt) => (
-                <button
-                  key={opt.label}
-                  onClick={() => {
-                    speak(opt.label);
-                    if (opt.result) setResult(opt.result);
-                    else if (opt.next) setNodeId(opt.next);
-                  }}
-                  className="flex w-full items-center justify-between rounded-2xl bg-primary-soft px-5 py-5 text-left font-bold text-primary shadow-soft-sm transition-soft hover:scale-[1.01]"
-                >
-                  <span className="text-lg">{opt.label}</span>
-                  <ChevronRight />
-                </button>
-              ))}
+              {node.options.map((opt) => {
+                const isSelected = selectedOption === opt.label;
+                return (
+                  <button
+                    key={opt.label}
+                    onClick={() => {
+                      if (!isSelected) {
+                        // 1º clique: lê e seleciona
+                        speak(opt.label);
+                        setSelectedOption(opt.label);
+                        return;
+                      }
+                      // 2º clique: confirma e avança
+                      if (opt.result) setResult(opt.result);
+                      else if (opt.next) setNodeId(opt.next);
+                    }}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-2xl px-5 py-5 text-left font-bold shadow-soft-sm transition-soft hover:scale-[1.01]',
+                      isSelected
+                        ? 'bg-peach-soft text-foreground ring-4 ring-primary'
+                        : 'bg-primary-soft text-primary',
+                    )}
+                  >
+                    <span className="text-lg">
+                      {opt.label}
+                      {isSelected && (
+                        <span className="ml-2 text-sm font-semibold text-primary">
+                          · toque novamente para confirmar
+                        </span>
+                      )}
+                    </span>
+                    <ChevronRight />
+                  </button>
+                );
+              })}
             </div>
           </section>
         )}

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 interface SpeakableProps {
   children: ReactNode;
   text: string;
-  as?: 'div' | 'button' | 'h1' | 'h2' | 'p' | 'span';
+  as?: 'div' | 'button' | 'h1' | 'h2' | 'h3' | 'p' | 'span' | 'li';
   className?: string;
   onClick?: () => void;
 }

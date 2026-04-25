@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Baby, Heart, Activity, User, ChevronRight, Check } from 'lucide-react';
+import { Baby, Heart, Activity, User, ChevronRight, Check, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Speakable } from '@/components/Speakable';
 import { SpeakerToggle } from '@/components/SpeakerToggle';
 import { MedicalFooter } from '@/components/MedicalFooter';
 import { useApp } from '@/state/AppState';
 import { useSpeech } from '@/hooks/useSpeech';
-import type { HealthCondition } from '@/lib/types';
+import type { HealthCondition, Stage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-const STEPS = ['Semanas', 'Filhos', 'Saúde', 'Idade'] as const;
+const STEPS = ['Você', 'Tempo', 'Filhos', 'Saúde', 'Idade'] as const;
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -18,7 +18,9 @@ export default function Onboarding() {
   const { speak } = useSpeech();
   const [step, setStep] = useState(0);
 
+  const [stage, setStage] = useState<Stage | null>(null);
   const [weeks, setWeeks] = useState(20);
+  const [postpartumDays, setPostpartumDays] = useState(14);
   const [hasChildren, setHasChildren] = useState<boolean | null>(null);
   const [conditions, setConditions] = useState<HealthCondition[]>([]);
   const [age, setAge] = useState(28);
@@ -26,8 +28,11 @@ export default function Onboarding() {
   const next = () => setStep((s) => s + 1);
 
   const finish = () => {
+    if (!stage) return;
     saveProfile({
-      weeks,
+      stage,
+      weeks: stage === 'pregnant' ? weeks : 0,
+      postpartumDays: stage === 'postpartum' ? postpartumDays : 0,
       hasOtherChildren: hasChildren ?? false,
       conditions: conditions.length ? conditions : ['nenhum'],
       age,
@@ -62,7 +67,7 @@ export default function Onboarding() {
                 i <= step ? 'bg-gradient-belly' : 'bg-muted',
               )}
             />
-            <span className={cn('text-xs', i === step ? 'font-bold text-primary' : 'text-muted-foreground')}>
+            <span className={cn('text-[10px]', i === step ? 'font-bold text-primary' : 'text-muted-foreground')}>
               {label}
             </span>
           </div>
@@ -70,7 +75,67 @@ export default function Onboarding() {
       </div>
 
       <main className="mx-auto mt-8 max-w-md">
+        {/* STEP 0 — Decisão crítica */}
         {step === 0 && (
+          <section className="soft-card p-6 text-center">
+            <Sparkles className="mx-auto h-16 w-16 text-primary animate-float" />
+            <Speakable as="h2" text="Como você está agora? Está grávida ou já teve seu bebê?" className="mt-3 font-display text-2xl">
+              Como você está?
+            </Speakable>
+            <p className="mt-1 text-sm text-muted-foreground">Toque na sua situação</p>
+
+            <div className="mt-6 grid gap-4">
+              <button
+                onClick={() => { speak('Estou grávida'); setStage('pregnant'); }}
+                className={cn(
+                  'flex items-center gap-4 rounded-3xl p-6 text-left transition-soft',
+                  stage === 'pregnant'
+                    ? 'bg-gradient-belly text-white shadow-glow scale-[1.02]'
+                    : 'bg-primary-soft text-primary shadow-soft-sm hover:scale-[1.01]',
+                )}
+              >
+                <div className={cn('rounded-2xl p-3', stage === 'pregnant' ? 'bg-white/30' : 'bg-white/60')}>
+                  <Baby size={48} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-display text-2xl font-extrabold">Estou Grávida</p>
+                  <p className="text-sm opacity-90">Esperando meu bebê</p>
+                </div>
+                {stage === 'pregnant' && <Check size={28} />}
+              </button>
+
+              <button
+                onClick={() => { speak('Já tive meu bebê'); setStage('postpartum'); }}
+                className={cn(
+                  'flex items-center gap-4 rounded-3xl p-6 text-left transition-soft',
+                  stage === 'postpartum'
+                    ? 'bg-gradient-peach-cta text-peach-foreground shadow-peach-glow scale-[1.02]'
+                    : 'bg-peach-soft text-peach-foreground shadow-soft-sm hover:scale-[1.01]',
+                )}
+              >
+                <div className={cn('rounded-2xl p-3', stage === 'postpartum' ? 'bg-white/40' : 'bg-white/60')}>
+                  <Heart size={48} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-display text-2xl font-extrabold">Já tive meu bebê</p>
+                  <p className="text-sm opacity-90">Cuidando do pós-parto</p>
+                </div>
+                {stage === 'postpartum' && <Check size={28} />}
+              </button>
+            </div>
+
+            <Button
+              disabled={!stage}
+              onClick={() => { speak('Próximo'); next(); }}
+              className="mt-6 h-16 w-full rounded-2xl bg-gradient-peach-cta text-lg font-bold text-peach-foreground shadow-peach-glow disabled:opacity-50"
+            >
+              Próximo <ChevronRight className="ml-1" />
+            </Button>
+          </section>
+        )}
+
+        {/* STEP 1 — Tempo (varia conforme stage) */}
+        {step === 1 && stage === 'pregnant' && (
           <section className="soft-card p-6 text-center">
             <Baby className="mx-auto h-20 w-20 text-primary animate-float" />
             <Speakable as="h2" text="Quantas semanas de gravidez você tem?" className="mt-4 font-display text-2xl">
@@ -106,11 +171,49 @@ export default function Onboarding() {
           </section>
         )}
 
-        {step === 1 && (
+        {step === 1 && stage === 'postpartum' && (
           <section className="soft-card p-6 text-center">
             <Heart className="mx-auto h-20 w-20 text-peach animate-float" />
-            <Speakable as="h2" text="Você já teve outros filhos?" className="mt-4 font-display text-2xl">
-              Já teve filhos?
+            <Speakable as="h2" text="Há quantos dias você teve o seu bebê?" className="mt-4 font-display text-2xl">
+              Quantos dias do parto?
+            </Speakable>
+            <p className="mt-2 text-sm text-muted-foreground">Arraste para escolher</p>
+
+            <div className="mt-6 soft-pressed rounded-3xl px-6 py-8">
+              <div className="font-display text-7xl font-extrabold text-peach-foreground">{postpartumDays}</div>
+              <div className="text-sm text-muted-foreground">
+                {postpartumDays === 1 ? 'dia' : 'dias'} ({Math.floor(postpartumDays / 7)} sem.)
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={365}
+                value={postpartumDays}
+                onChange={(e) => setPostpartumDays(Number(e.target.value))}
+                onMouseUp={() => speak(`${postpartumDays} dias`)}
+                onTouchEnd={() => speak(`${postpartumDays} dias`)}
+                className="mt-4 w-full accent-[hsl(var(--peach))]"
+                aria-label="Dias de pós-parto"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>0</span><span>180</span><span>365</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => { speak('Próximo'); next(); }}
+              className="mt-6 h-16 w-full rounded-2xl bg-gradient-peach-cta text-lg font-bold text-peach-foreground shadow-peach-glow"
+            >
+              Próximo <ChevronRight className="ml-1" />
+            </Button>
+          </section>
+        )}
+
+        {step === 2 && (
+          <section className="soft-card p-6 text-center">
+            <Heart className="mx-auto h-20 w-20 text-peach animate-float" />
+            <Speakable as="h2" text="Você já teve outros filhos antes?" className="mt-4 font-display text-2xl">
+              Já teve outros filhos?
             </Speakable>
             <div className="mt-6 grid grid-cols-2 gap-4">
               {[
@@ -141,7 +244,7 @@ export default function Onboarding() {
           </section>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <section className="soft-card p-6 text-center">
             <Activity className="mx-auto h-20 w-20 text-warning animate-float" />
             <Speakable as="h2" text="Você tem algum problema de saúde?" className="mt-4 font-display text-2xl">
@@ -179,7 +282,7 @@ export default function Onboarding() {
           </section>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <section className="soft-card p-6 text-center">
             <User className="mx-auto h-20 w-20 text-mint-foreground animate-float" />
             <Speakable as="h2" text="Qual é a sua idade?" className="mt-4 font-display text-2xl">

@@ -35,6 +35,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       demoOffsetWeeks: 0,
     };
     setProfile(full);
+    storage.setProfile(full);
   }, []);
 
   const resetAll = useCallback(() => {
@@ -66,10 +67,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const currentWeek = useMemo(() => {
     if (!profile) return 0;
+    if (profile.stage === 'postpartum') {
+      // semanas pós-parto (positivo)
+      const baseWeeks = Math.floor(profile.postpartumDays / 7);
+      return baseWeeks + profile.demoOffsetWeeks;
+    }
     return Math.max(1, Math.min(42, profile.weeks + profile.demoOffsetWeeks));
   }, [profile]);
 
-  const daysToBirth = useMemo(() => Math.max(0, (40 - currentWeek) * 7), [currentWeek]);
+  const daysToBirth = useMemo(() => {
+    if (!profile) return 0;
+    if (profile.stage === 'postpartum') return 0;
+    return Math.max(0, (40 - currentWeek) * 7);
+  }, [currentWeek, profile]);
 
   const consecutiveDaysWith = useCallback(
     (s: SymptomKey) => {
